@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en" xml:lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <title>CS 418 - Raytracing</title>
+  <style type="text/css">
+    code {
+      white-space: pre;
+    }
+  </style>
+  <style type="text/css">
+    q {
+      quotes: "“" "”" "‘" "’";
+    }
+  </style>
+  <link rel="stylesheet" href="../style.css" />
+  <script defer="" src="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.js"></script>
+  <script>document.addEventListener("DOMContentLoaded", function () {
+      var mathElements = document.getElementsByClassName("math");
+      var macros = [];
+      for (var i = 0; i < mathElements.length; i++) {
+        var texText = mathElements[i].firstChild;
+        if (mathElements[i].tagName == "SPAN") {
+          katex.render(texText.data, mathElements[i], {
+            displayMode: mathElements[i].classList.contains('display'),
+            throwOnError: false,
+            macros: macros,
+            fleqn: false
+          });
+        }
+      }
+    });
+  </script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex/dist/katex.min.css" />
+  <!--<style type="text/css">.katex { font-size: inherit; }</style>-->
+</head>
+
+<body>
+  <div class="navbar navbar-static-top">
+    <div class="navbar-inner">
+      <div class="container">
+        <span class="doc-title">CS 418 &ndash; Raytracing
+        </span>
+        <ul class="nav pull-right doc-info">
+          <li>
+            <p class="navbar-text"><a href="../index.html">home</a></p>
+          </li>
+          <li>
+            <p class="navbar-text"><a href="../content.html">content</a></p>
+          </li>
+          <li>
+            <p class="navbar-text"><a href="../mps/">MPs</a></p>
+          </li>
+          <li>
+            <p class="navbar-text"><a href="https://cs418.cs.illinois.edu/submit/">submissions</a></p>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- <blockquote style="background-color:#fbb; font-size:150%">This page does not represent <a href="../../">the most current semester</a> of this course; it is present merely as an archive.</blockquote> -->
+
+  <div class="container">
+    <div class="row">
+      <div id="TOC" class="span3">
+        <div class="well toc">
+          <details open="">
+            <summary class="nav-header">Table of Contents</summary>
+            <ul>
+              <li><a href="#overview" id="toc-overview"><span class="toc-section-number">1</span> Overview</a>
+                <ul>
+                  <li><a href="#primary-and-secondary-rays" id="toc-primary-and-secondary-rays"><span
+                        class="toc-section-number">1.1</span> Primary and Secondary
+                      Rays</a></li>
+                </ul>
+              </li>
+              <li><a href="#rays-and-ray--intersections" id="toc-rays-and-ray--intersections"><span
+                    class="toc-section-number">2</span> Rays and Ray-*
+                  Intersections</a>
+                <ul>
+                  <li><a href="#ray-plane-intersection" id="toc-ray-plane-intersection"><span
+                        class="toc-section-number">2.1</span> Ray-Plane
+                      Intersection</a></li>
+                  <li><a href="#ray-sphere-intersection" id="toc-ray-sphere-intersection"><span
+                        class="toc-section-number">2.2</span> Ray-Sphere
+                      Intersection</a></li>
+                  <li><a href="#ray-aabb-intersection" id="toc-ray-aabb-intersection"><span
+                        class="toc-section-number">2.3</span> Ray-AABB
+                      Intersection</a></li>
+                </ul>
+              </li>
+              <li><a href="#inverse-mapping-and-barycentric-coordinates"
+                  id="toc-inverse-mapping-and-barycentric-coordinates"><span class="toc-section-number">3</span> Inverse
+                  Mapping and
+                  Barycentric Coordinates</a>
+                <ul>
+                  <li><a href="#inverse-sphere-mapping" id="toc-inverse-sphere-mapping"><span
+                        class="toc-section-number">3.1</span> Inverse Sphere
+                      Mapping</a></li>
+                  <li><a href="#inverse-triangle-mapping" id="toc-inverse-triangle-mapping"><span
+                        class="toc-section-number">3.2</span> Inverse Triangle
+                      Mapping</a></li>
+                </ul>
+              </li>
+              <li><a href="#secondary-rays" id="toc-secondary-rays"><span class="toc-section-number">4</span> Secondary
+                  Rays</a>
+                <ul>
+                  <li><a href="#shadows" id="toc-shadows"><span class="toc-section-number">4.1</span> Shadows</a></li>
+                  <li><a href="#reflection" id="toc-reflection"><span class="toc-section-number">4.2</span>
+                      Reflection</a></li>
+                  <li><a href="#transparency" id="toc-transparency"><span class="toc-section-number">4.3</span>
+                      Transparency</a></li>
+                  <li><a href="#global-illumination" id="toc-global-illumination"><span
+                        class="toc-section-number">4.4</span> Global
+                      Illumination</a></li>
+                </ul>
+              </li>
+              <li><a href="#photon-mapping-and-caustics" id="toc-photon-mapping-and-caustics"><span
+                    class="toc-section-number">5</span> Photon Mapping and
+                  Caustics</a></li>
+              <li><a href="#sub--super--and-importance-sampling" id="toc-sub--super--and-importance-sampling"><span
+                    class="toc-section-number">6</span> Sub-, Super-, and
+                  Importance-Sampling</a></li>
+            </ul>
+          </details>
+        </div>
+      </div>
+      <div class="span9">
+        <h1 data-number="1" id="overview"><span class="header-section-number">1</span> Overview</h1>
+        <p>Raytracing tries to solve the same problem as rasterization—that is,
+          create a set of pixel colors to represent a mathematical description of
+          stuff—but goes about it in reverse. Where rasterization asks the
+          questions <q>what pixels are contained within this object</q> raytracing
+          asks instead <q>what objects are visible within this pixel?</q></p>
+        <p>Raytracing is currently slower than rasterization, though it admits
+          almost unlimited amounts of parallelism causing some people think it
+          will become faster in years to come. Currently its primary advantage is
+          that the process does not depend on raster structure and so it can
+          easily model reflection, transparency, and similar optical
+          properties.</p>
+        <p>The speed of a raytracing system depends largely on the quality of
+          the spatial hierarchy used. Conceptually, the idea here is to collect a
+          group of nearby objects and find a bounding box for them; if a box is
+          not visible from a particular pixel, none of the objects within it are
+          either. Such hierarchies are not a topic for this document.</p>
+        <h2 data-number="1.1" id="primary-and-secondary-rays"><span class="header-section-number">1.1</span> Primary and
+          Secondary Rays</h2>
+        <p>A ray is a semi-infinite line; it is typically stored as a point
+          called the ray origin, <span class="math inline">\mathbf{r_o}</span>;
+          and a direction vector <span class="math inline">\vec r_d</span>. Then
+          the ray itself is the set of points <span class="math inline">\{\mathbf{r_o} + t \vec r_d \;|\; t \in
+            \mathbb{R}^{+}\}</span>, and the goal of raytracing is to find the point
+          in the ray on the surface of another object which is closest to the ray
+          origin (that is, with minimal <span class="math inline">t</span>).</p>
+        <p>Ray tracing creates one or more rays per pixel. Those rays are
+          intersected with objects in the scene and then, generally, several
+          secondary rays are generated from those intersection points, and
+          intersected with the scene again, and then more are generated, etc.,
+          until you get tired of shooting rays, at which point you do some sort of
+          <a href="lighting.html">direct illumination</a> and call it good.
+        </p>
+        <p>There are a number of ways to generate rays from pixels. For all of
+          them we need the camera position and orientation, given by the eye
+          position <span class="math inline">\mathbf{e}</span> and the forward,
+          up, and right directions <span class="math inline">\vec f</span>, <span class="math inline">\vec u</span>, and
+          <span class="math inline">\vec
+            r</span>. The ray origin is generally just <span class="math inline">\mathbf{e}</span>. The most common
+          choice for ray
+          direction is designed to replicate the standard rasterization
+          perspective look: given normalized device coordinates for a pixel <span class="math inline">(x,y)</span>, its
+          ray direction is <span class="math inline">\vec f \cos(\theta) + (x \vec r + y \vec
+            u)\sin(\theta)</span>, where <span class="math inline">\theta</span> is
+          the field of view. Fish-eye <span class="math inline">\left(x \vec r + y
+            \vec u + \sqrt{1-x^2-y^2}\vec f\right)</span> and cylindrical <span class="math inline">\left(y \vec u +
+            \cos(x) \vec f + \sin(x) \vec
+            r\right)</span> projections are also used in some settings.
+        </p>
+        <h1 data-number="2" id="rays-and-ray--intersections"><span class="header-section-number">2</span> Rays and Ray-*
+          Intersections</h1>
+        <p>In general, the intersection of a ray <span class="math inline">\mathbf{r_o}+t \vec r_d</span> with some
+          object
+          <span class="math inline">g(\mathbf{p}) = 0</span> is found as the
+          minimal <span class="math inline">t</span> for which <span class="math inline">g(\mathbf{r_o}+t \vec r_d) =
+            0</span>. Constrained
+          minimization of this type is a widely-studied problem in numerical
+          analysis, optimization, and many branches of engineering and science.
+          However, most raytracers use only three particular solutions: ray-plane,
+          ray-AABB, and ray-sphere intersections.
+        </p>
+        <figure>
+          <svg viewBox="-6.4 -2.2 10.8 5.4"
+            style="display:table; margins:auto; max-width: 40em; border: thin solid gray;" stroke-width="0.015">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6"
+                orient="auto-start-reverse">
+                <path d="M 0,0 10,5 0,10 5,5 z" />
+              </marker>
+              <marker id="arrow2" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="9" markerHeight="9"
+                orient="auto-start-reverse">
+                <path d="M 0,0 10,5 0,10 5,5 z" />
+              </marker>
+              <marker id="dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5">
+                <circle cx="5" cy="5" r="5" />
+              </marker>
+            </defs>
+            <circle cx="2" cy="0" r="1.51" fill="none" stroke="black" stroke-width="0.03" />
+            <circle cx="-5" cy="2" r="0.05" />
+            <text x="-5" y="2.3" text-anchor="middle" font-size="2.5%" font-family="KaTeX_Main" font-weight="700">r
+              <tspan dy="1%" font-size="70%">o</tspan>
+            </text>
+            <circle cx="2" cy="0" r="0.05" />
+            <text x="2" y="-0.2" text-anchor="middle" font-size="2.5%" font-family="KaTeX_Main"
+              font-weight="700">c</text>
+            <circle cx="2.175" cy="0.565" r="0.05" />
+            <text x="2.175" y="0.965" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-weight="700">c
+              <tspan dy="-2%" font-size="50%">′</tspan>
+            </text>
+            <circle cx="0.75" cy="0.85" r="0.05" />
+            <text x="0.65" y="1.25" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-weight="700">c
+              <tspan dy="-2%" font-size="50%">′′</tspan>
+            </text>
+            <circle cx="-2" cy="1.4" r="0.05" />
+            <text x="-2" y="1.8" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-weight="700">p<tspan
+                dy="-2%" font-size="50%">′</tspan></text>
+            <circle cx="-5.4" cy="-0.3" r="0.05" />
+            <text x="-5.4" y="-0.5" text-anchor="middle" font-size="2.5%" font-family="KaTeX_Main"
+              font-weight="700">p</text>
+            <g stroke="black">
+              <line x1="-5" y1="2" x2="-4" y2="1.8" marker-end="url(#arrow)" stroke-width="0.03" id="ray-direction" />
+              <line x1="-5" y1="2" x2="1.9" y2="0.03" marker-end="url(#arrow2)" stroke-dasharray="0.1" id="r-to-c" />
+              <line x1="-5" y1="2" x2="-5.38" y2="-0.1" marker-end="url(#arrow2)" stroke-dasharray="0.1" id="r-to-p" />
+              <line x1="-5.4" y1="-0.3" x2="-5.9" y2="0.7" marker-end="url(#arrow)" stroke-width="0.03" id="normal" />
+              <line x1="-6.4" y1="-0.8" x2="1.6" y2="3.2" stroke-width="0.03" id="plane" />
+              <line x1="2" y1="0" x2="0.93" y2="-1.07" id="radius" />
+              <line x1="2" y1="0" x2="2.175" y2="0.565" id="c-to-ray" />
+              <line x1="-5" y1="2" x2="4.3" y2="0.14" marker-end="url(#arrow2)" id="ray" opacity="0.25" />
+            </g>
+            <text x="-5.9" y="0.2" text-anchor="middle" font-size="2%" font-family="KaTeX_Main"
+              font-style="italic">n⃗</text>
+            <text x="-4.3" y="2.2" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-style="italic">r⃗
+              <tspan dy="1%" font-size="70%">d</tspan>
+            </text>
+            <text x="2.1" y="0.28" text-anchor="left" font-size="2%" font-family="KaTeX_Main"
+              font-style="italic">d</text>
+            <text x="1.5" y="-.7" text-anchor="middle" font-size="2%" font-family="KaTeX_Main"
+              font-style="italic">r</text>
+            <text x="-0.6" y="0.5" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-weight="700">c
+              <tspan font-weight="100"> − </tspan>r<tspan dy="1%" font-size="70%">o</tspan>
+            </text>
+            <text x="-5.1" y="1" text-anchor="right" font-size="2%" font-family="KaTeX_Main" font-weight="700">p<tspan
+                font-weight="100"> − </tspan>r<tspan dy="1%" font-size="70%">o</tspan></text>
+          </svg>
+          <figcaption>
+            Some of the geometry used in the ray-plane and ray-sphere intersection
+            routines.
+          </figcaption>
+        </figure>
+        <h2 data-number="2.1" id="ray-plane-intersection"><span class="header-section-number">2.1</span> Ray-Plane
+          Intersection</h2>
+        <p>Planes can be described in a number of ways; principle among them are
+          implicit equations <span class="math inline">A x + B y + C z + D =
+            0</span>, point-and-normal form (<span class="math inline">\vec
+            n</span>, <span class="math inline">\mathbf{p}</span>), and three-point
+          form (<span class="math inline">\mathbf{p_0}</span>, <span class="math inline">\mathbf{p_1}</span>, <span
+            class="math inline">\mathbf{p_2}</span>). We will use the point-normal
+          version, noting that <span class="math display">\vec n \equiv (A,B,C)
+            \equiv (\overrightarrow{\mathbf{p_1}-\mathbf{p_0}}) \times
+            (\overrightarrow{\mathbf{p_2}-\mathbf{p_0}})</span> and that the point
+          <span class="math inline">\left(-\frac{D}{A},0,0\right)</span> is on the
+          plane.
+        </p>
+        <p>The distance between the ray origin <span class="math inline">\mathbf{r_o}</span> and a plane is <span
+            class="math inline">(\overrightarrow{\mathbf{r_o}-\mathbf{p}}) \cdot
+            \vec n\frac{1}{\|\vec n\|}</span>. The distance the ray travels toward
+          the plane per unit <span class="math inline">t</span> is <span class="math inline">\vec r_d \cdot \vec
+            n\frac{-1}{\|\vec n\|}</span>.
+          Setting these equal to one another we get <span class="math inline">t =
+            \frac{(\overrightarrow{\mathbf{p}-\mathbf{r_o}}) \cdot \vec n}{\vec r_d
+            \cdot \vec n}</span>. If <span class="math inline">t</span> is positive,
+          we can use that <span class="math inline">t</span> in the ray equation
+          to find the intersection point <span class="math inline">\mathbf{p&#39;}
+            = t \vec r_d + \mathbf{r_o}</span>. If <span class="math inline">t</span> is not positive there is no
+          intersection.</p>
+        <div role="complimentary" aria-label="algorithm" class="algorithm">
+          <p>Ray-Plane Intersection</p>
+          <dl>
+            <dt>Input</dt>
+            <dd>
+              <ul>
+                <li>Ray with origin <span class="math inline">\mathbf{r_o}</span> and
+                  direction <span class="math inline">\vec r_d</span></li>
+                <li>Plane with normal <span class="math inline">\vec n</span> through
+                  point <span class="math inline">\mathbf{p}</span></li>
+              </ul>
+            </dd>
+            <dt>Output</dt>
+            <dd>
+              <p>Either <q>no intersection</q></p>
+              <p>Or intersection distance <span class="math inline">t</span> and point
+                <span class="math inline">\mathbf{p&#39;}</span>
+              </p>
+            </dd>
+            <dt>Process</dt>
+            <dd>
+              <ol type="1">
+                <li>
+                  <p>Let <span class="math inline">t =
+                      \dfrac{(\overrightarrow{\mathbf{p}-\mathbf{r_o}}) \cdot \vec n}{\vec r_d
+                      \cdot \vec n}</span></p>
+                </li>
+                <li>
+                  <p>If <span class="math inline">t &gt; 0</span>, intersection found
+                    at depth <span class="math inline">t</span> is <span class="math inline">\mathbf{p&#39;} = t \vec
+                      r_d +
+                      \mathbf{r_o}</span>.</p>
+                  <p>Otherwise, no intersection</p>
+                </li>
+              </ol>
+            </dd>
+          </dl>
+        </div>
+        <h2 data-number="2.2" id="ray-sphere-intersection"><span class="header-section-number">2.2</span> Ray-Sphere
+          Intersection</h2>
+        <p>Given a sphere with center <span class="math inline">\mathbf{c}</span> and radius <span
+            class="math inline">r</span>, we first evaluate if the ray originates
+          inside the sphere (<span class="math inline">\|\overrightarrow{\mathbf{c}-\mathbf{r_o}}\|^2 &lt;
+            r^2</span>) or not. We then find the <span class="math inline">t</span>
+          value of the point where the ray comes closest to the center of the
+          sphere, <span class="math inline">t_c =
+            \frac{(\overrightarrow{\mathbf{c}-\mathbf{r_o}}) \cdot \vec r_d}{\|\vec
+            r_d\|}</span>. If the ray origin is outside and <span class="math inline">t_c</span> is negative, there is
+          no intersection.
+          Otherwise we proceed to find the squared distance of closest approach
+          <span class="math inline">d^2 = \|\mathbf{r_o} + t_c \vec r_d -
+            \mathbf{c}\|^2</span>. If <span class="math inline">d^2 &gt; r^2</span>,
+          which can only happen if the ray originates outside the sphere, then
+          there is no intersection; otherwise we find how far from the point of
+          closest approach the point of intersection is as <span class="math inline">t_{\text{offset}} = \frac{\sqrt{r^2
+            - d^2}}{\|\vec
+            r_d\|}</span>. If the origin is inside, the point of intersection is
+          <span class="math inline">\mathbf{r_o} + (t_c + t_{\text{offset}}) \vec
+            r_d</span>; otherwise, it is <span class="math inline">\mathbf{r_o} +
+            (t_c - t_{\text{offset}}) \vec r_d</span>.
+        </p>
+        <div role="complimentary" aria-label="algorithm" class="algorithm">
+          <p>Ray-Sphere Intersection</p>
+          <dl>
+            <dt>Input</dt>
+            <dd>
+              <ul>
+                <li>Ray with origin <span class="math inline">\mathbf{r_o}</span> and
+                  <strong>unit-length</strong> direction <span class="math inline">\vec
+                    r_d</span>
+                </li>
+                <li>Sphere with center <span class="math inline">\mathbf{c}</span> and
+                  radius <span class="math inline">r</span></li>
+              </ul>
+            </dd>
+            <dt>Output</dt>
+            <dd>
+              <p>Either <q>no intersection</q></p>
+              <p>Or intersection distance <span class="math inline">t</span> and point
+                <span class="math inline">\mathbf{p&#39;}</span>
+              </p>
+            </dd>
+            <dt>Process</dt>
+            <dd>
+              <ol type="1">
+                <li>
+                  <p>let <code>inside</code> be <span
+                      class="math inline">\left(\|\overrightarrow{\mathbf{c}-\mathbf{r_o}}\|^2
+                      &lt; r^2\right)</span></p>
+                </li>
+                <li>
+                  <p>let <span class="math inline">t_c =
+                      \dfrac{(\overrightarrow{\mathbf{c}-\mathbf{r_o}}) \cdot \vec r_d}{\|\vec
+                      r_d\|}</span></p>
+                  <p><em>This is the distance along the ray to <span class="math inline">\mathbf{c}&#39;</span>, the
+                      rays’ closest approach
+                      to <span class="math inline">\mathbf c</span>, but we don’t need <span
+                        class="math inline">\mathbf{c}&#39;</span>, only <span class="math inline">t_c</span></em></p>
+                </li>
+                <li>
+                  <p>if not <code>inside</code> and <span class="math inline">t_c &lt;
+                      0</span>, no intersection</p>
+                </li>
+                <li>
+                  <p>let <span class="math inline">d^2 = \|\mathbf{r_o} + t_c \vec r_d
+                      - \mathbf{c}\|^2</span></p>
+                </li>
+                <li>
+                  <p>if not <code>inside</code> and <span class="math inline">r^2 &lt;
+                      d^2</span>, no intersection</p>
+                </li>
+                <li>
+                  <p>let <span class="math inline">t_{\text{offset}} =
+                      \dfrac{\sqrt{r^2 - d^2}}{\|\vec r_d\|}</span></p>
+                  <p><em>This is the difference between <span class="math inline">t</span>
+                      and <span class="math inline">t_c</span>; rays intersect spheres twice
+                      (once entering, once exiting) so <span class="math inline">t_c \pm
+                        t_{\text{offset}}</span> are both intersection points</em></p>
+                </li>
+                <li>
+                  <p>if <code>inside</code>, intersection found at depth <span class="math inline">t=t_c +
+                      t_{\text{offset}}</span> is <span class="math inline">\mathbf{c&#39;&#39;} = t \vec r_d +
+                      \mathbf{r_o}</span></p>
+                  <p>otherwise, intersection found at depth <span class="math inline">t=t_c - t_{\text{offset}}</span>
+                    is <span class="math inline">\mathbf{c&#39;&#39;} = t \vec r_d +
+                      \mathbf{r_o}</span></p>
+                </li>
+              </ol>
+            </dd>
+          </dl>
+        </div>
+        <h2 data-number="2.3" id="ray-aabb-intersection"><span class="header-section-number">2.3</span> Ray-AABB
+          Intersection</h2>
+        <p>It is rare to want to create images of axis-aligned bounding boxes
+          (AABBs), but it is easy to find ray-AABB intersections and easy to find
+          the AABB that contains a set of objects, so most raytracers try AABB
+          intersections for sets of nearby objects before checking for
+          intersections with the objects within the AABB.</p>
+        <p>AABBs consist of six axis-aligned planes. For the axis-aligned case,
+          the ray-plane intersection becomes quite simple because the normal has
+          only one non-zero element; thus, for the plane, e.g., <span class="math inline">x = a</span>, the <span
+            class="math inline">t</span>
+          value of intersection is <span class="math inline">t_{x=a} = \frac{a -
+            \mathbf{r_o}_x}{\overrightarrow{r_d}_x}</span>. The ray then intersects
+          the AABB if and only if there is some positive <span class="math inline">t</span> between all six planes; for
+          minimum point
+          <span class="math inline">(a,b,c)</span> and maximum point <span class="math inline">(A,B,C)</span>, we have
+          <span class="math display">[0,\infty) \cap [t_{x=a}, t_{x=A}] \cap [t_{y=b},
+            t_{y=B}] \cap [t_{z=c}, t_{z=C}] \ne \emptyset.</span> It is usually not
+          important to know the <span class="math inline">t</span>-value for an
+          AABB intersection, but if needed it is simply the smallest <span class="math inline">t</span> in the interval
+          defined above.
+        </p>
+        <h1 data-number="3" id="inverse-mapping-and-barycentric-coordinates"><span
+            class="header-section-number">3</span> Inverse Mapping and Barycentric
+          Coordinates</h1>
+        <p>Once you have found an intersection with some object it is generally
+          desirable to know where you hit it so that you can apply texture
+          mapping, normal interpolation, or the like. This process is called
+          <q>inverse mapping.</q>
+        </p>
+        <h2 data-number="3.1" id="inverse-sphere-mapping"><span class="header-section-number">3.1</span> Inverse Sphere
+          Mapping</h2>
+        <p>For a sphere, if the point of intersection is <span class="math inline">\mathbf{p}</span> then the normal
+          simply points from
+          the center to the point of intersection, <span class="math inline">\vec
+            n = \frac{1}{r}\left(\overrightarrow{\mathbf{p} -
+            \mathbf{c}}\right)</span>. From that it is easy to derive that the
+          longitude is <span class="math inline">\mathtt{atan2}(n_x, n_z)</span>
+          and the latitude is <span class="math inline">\mathtt{atan2}\left(n_y,
+            \sqrt{n_x^2 + n_z^2}\right)</span>.</p>
+        <h2 data-number="3.2" id="inverse-triangle-mapping"><span class="header-section-number">3.2</span> Inverse
+          Triangle Mapping</h2>
+        <p>For a triangle, the typical inverse mapping gives you the Barycentric
+          coordinates of the point of intersection. Barycentric coordinates are
+          three numbers, one per vertex of the triangle, which state how close to
+          each of the three vertices the point in question is. In particular,
+          given an intersection point of <span class="math inline">\mathbf{p}</span> and vertices <span
+            class="math inline">\mathbf{p_0}</span>, <span class="math inline">\mathbf{p_1}</span>, and <span
+            class="math inline">\mathbf{p_2}</span>, the barycentric coordinates
+          <span class="math inline">(b_0, b_1, b_2)</span> satisfy the two
+          properties that
+        </p>
+        <ol type="a">
+          <li>they sum to 1, and</li>
+          <li><span class="math inline">\mathbf{p} = b_0\mathbf{p_0} +
+              b_1\mathbf{p_1} + b_2\mathbf{p_2}</span>.</li>
+        </ol>
+        <p>Every point in the same plane as the triangle has a unique set of
+          Barycentric coordinates, and all three coordinates are positive if and
+          only if the point is within the triangle’s bounds.</p>
+        <p>There are many techniques for inverse mapping a triangle. The one I
+          present here is not the most common, but is easy and efficient as long
+          as you compute and store the information only once. First, observe that
+          since <span class="math inline">b_i</span> is the <q>nearness</q> to
+          point <span class="math inline">\mathbf{p_i}</span>, it is also the
+          distance from the edge joining the other two points. This distance can
+          be found directly by using a dot product with a vector perpendicular to
+          this edge.</p>
+        <figure>
+          <svg viewBox="-4.5 -2.7 8 5.5" style="display:table; margins:auto; max-width: 40em; border: thin solid gray;"
+            stroke-width="0.015">
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6"
+                orient="auto-start-reverse">
+                <path d="M 0,0 10,5 0,10 5,5 z" />
+              </marker>
+              <marker id="arrow2" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="9" markerHeight="9"
+                orient="auto-start-reverse">
+                <path d="M 0,0 10,5 0,10 5,5 z" />
+              </marker>
+              <marker id="dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5">
+                <circle cx="5" cy="5" r="5" />
+              </marker>
+            </defs>
+            <circle cx="-2" cy="-2" r="0.05" id="p0" />
+            <circle cx="3" cy="-2" r="0.05" id="p1" />
+            <circle cx="-4" cy="2" r="0.05" id="p2" />
+            <circle cx="0" cy="-1" r="0.05" />
+            <path fill="none" stroke="black" d="M -2,-2 3,-2, -4,2 Z" />
+            <g stroke="black" marker-end="url(#arrow2)" stroke-dasharray="0.1">
+              <line x1="-1" y1="-2" x2="-1" y2="2" id="e2" />
+              <line x1="-2.25" y1="-1.5" x2="1.75" y2="0.5" id="e1" />
+              <line x1="-2" y1="0.8333333" x2="-3.333333" y2="-1.666666" id="e0" />
+              <line x1="-2" y1="-2" x2="-0.06" y2="-1.03" id="off" stroke-dasharray="0.03" />
+            </g> <!---->
+            <text x="0.1" y="-1" text-anchor="left" font-size="2%" font-family="KaTeX_Main" font-weight="700">p</text>
+            <!---->
+            <text x="-2" y="-2.2" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-weight="700">p<tspan
+                dy="1%" font-size="70%">0</tspan></text>
+            <text x="3" y="-2.2" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-weight="700">p<tspan
+                dy="1%" font-size="70%">1</tspan></text>
+            <text x="-4" y="2.3" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-weight="700">p<tspan
+                dy="1%" font-size="70%">2</tspan></text>
+            <!---->
+            <text x="-3.4" y="-1.8" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-style="italic">e⃗
+              <tspan dy="1%" font-size="70%">0</tspan>
+            </text>
+            <text x="1.8" y="0.6" text-anchor="left" font-size="2%" font-family="KaTeX_Main" font-style="italic">e⃗
+              <tspan dy="1%" font-size="70%">1</tspan>
+            </text>
+            <text x="-1" y="2.3" text-anchor="middle" font-size="2%" font-family="KaTeX_Main" font-style="italic">e⃗
+              <tspan dy="1%" font-size="70%">2</tspan>
+            </text>
+          </svg>
+          <figcaption>
+            Finding Barycentric coordinates. If <span class="math inline">\vec{e_2}
+              \cdot (\mathbf{p_2}-\mathbf{p_0}) = 1</span>, then <span class="math inline">b_2 = \vec e_2 \cdot
+              (\mathbf{p}-\mathbf{p_0})</span>, and similarly for <span class="math inline">b_1</span>. Since <span
+              class="math inline">b_0+b_1+b_2 = 1</span>, <span class="math inline">b_0</span> is simply <span
+              class="math inline">1 -
+              b_1 - b_2</span>. Thus, assuming that correctly-scaled <span class="math inline">\vec e_1</span> and <span
+              class="math inline">\vec
+              e_2</span> are precomputed, we can compute the barycentric coordinates
+            using just six multiplies and nine adds.
+          </figcaption>
+        </figure>
+        <p>in that image, <span class="math inline">b_1 = \vec e_1 \cdot
+            (\mathbf{p}-\mathbf{p_0})</span> because <span class="math inline">\vec
+            e_1</span> points directly away from the edge between <span class="math inline">\mathbf{p_{i\ne1}}</span>.
+          Similarly, <span class="math inline">b_2 = \vec e_2 \cdot
+            (\mathbf{p}-\mathbf{p_0})</span> and <span class="math inline">b_0 =
+            1-b_1 - b_2</span>. It thus suffices to find <span class="math inline">\vec e_1</span> and <span
+            class="math inline">\vec
+            e_2</span> in order to find the barycentric coordinates. This may be
+          done as <span class="math display">\begin{split}
+            \vec a_1 &amp;= \overrightarrow{\mathbf{p_2}-\mathbf{p_0}} \times \vec
+            n\\
+            \vec a_2 &amp;= \overrightarrow{\mathbf{p_1}-\mathbf{p_0}} \times \vec
+            n\\
+            \vec e_1 &amp;= \frac{1}{\vec a_1 \cdot
+            \overrightarrow{\mathbf{p_1}-\mathbf{p_0}}} \vec a_1 \\
+            \vec e_2 &amp;= \frac{1}{\vec a_2 \cdot
+            \overrightarrow{\mathbf{p_2}-\mathbf{p_0}}} \vec a_2
+            \end{split}</span> These two <span class="math inline">\vec e_i</span>
+          vectors can be precomputed and stored along with the normal <span class="math inline">\vec n</span> in each
+          triangle data structure to
+          allow rapid ray-triangle intersections. Note that this also suffices for
+          the inside-outside test needed to turn a ray-plane intersection into a
+          ray-triangle intersection; a point is inside a triangle if and only if
+          all three barycentric coordinates are between zero and one.</p>
+        <p>Because <span class="math inline">\mathbf{p} = b_0\mathbf{p_0} +
+            b_1\mathbf{p_1} + b_2\mathbf{p_2}</span>, we can use the barycentric
+          coordinates to find all the information stored in each vertex
+          interpolated to any point on the interior of the triangle: <span class="math inline">\vec{p} = b_0\vec{p_0} +
+            b_1\vec{p_1} +
+            b_2\vec{p_2}</span>. You can then use that information just as you would
+          interpolated fragment values during rasterization.</p>
+        <h1 data-number="4" id="secondary-rays"><span class="header-section-number">4</span> Secondary Rays</h1>
+        <p>Shadows, reflection, and transparency are easily achieved using
+          secondary rays: Once you find an intersection point <span class="math inline">\mathbf p</span> you then
+          generate a new ray with
+          <span class="math inline">\mathbf p</span> as its origin and intersect
+          that ray with the scene.
+        </p>
+        <p>Care should be taken that roundoff errors in storing <span class="math inline">\mathbf p</span> do not cause
+          the the secondary ray
+          to intersect the object from which it originates. This cannot be done
+          simply by using more precise numbers; instead you’ll need to do one of
+          the following:</p>
+        <ul>
+          <li>
+            <p>Bias the secondary rays away from the object that emits them.
+              Effectively this means ignoring ray intersections with <span class="math inline">t&lt;\epsilon</span> for
+              some small positive <span class="math inline">\epsilon</span>. If your <span
+                class="math inline">\epsilon</span> is too small, you’ll still get some
+              self-intersections causing shadow acne or the like. If your <span class="math inline">\epsilon</span> is
+              too large, opaque objects will
+              render as invisible when seen from up close.</p>
+          </li>
+          <li>
+            <p>Ignore intersections with the (part of the) object that emitted
+              the ray. For sphere reflections and shadows this means ignoring the
+              sphere. For sphere transparency it means ignoring the same
+              entering/exiting intersection of the sphere. For triangle meshes is
+              means ignoring the triangle and its immediate neighbors.</p>
+          </li>
+          <li>
+            <p>Require particular directional interfacing. If all of your
+              geometry is in the form of non-intersecting closed surface meshes then
+              you can classify each ray as internal or external and each intersection
+              as either entering or exiting and ignore intersections that don’t match
+              the ray type. The conditions on this make it unusual as-is, but a
+              variant combining it with biasing can work well.</p>
+          </li>
+        </ul>
+        <h2 data-number="4.1" id="shadows"><span class="header-section-number">4.1</span> Shadows</h2>
+        <p>A point is in shadow relative to a particular light source if the ray
+          <span class="math inline">(\mathbf p, \vec \ell)</span> intersects
+          anything closer than the light source itself.
+        </p>
+        <h2 data-number="4.2" id="reflection"><span class="header-section-number">4.2</span> Reflection</h2>
+        <p>A mirrored object’s color is given by the ray tracing result of the
+          ray with origin <span class="math inline">\mathbf p</span> and direction
+          <span class="math inline">2(\vec n \cdot \vec e)\vec n - \vec e</span>.
+          A partially mirrored object mixes that color result with a standard
+          lighting computation at <span class="math inline">\mathbf p</span>. One
+          reflection ray might generate another; a cutoff number of recursions is
+          necessary to prevent infinite loops.
+        </p>
+        <h2 data-number="4.3" id="transparency"><span class="header-section-number">4.3</span> Transparency</h2>
+        <p>Transparency is somewhat more complicated, relying on Snell’s Law.
+          For it to make sense, every surface needs to be a boundary between two
+          materials, which is not trivially true in the case of triangles nor
+          intersecting objects. However, assuming that we know that the ray is
+          traveling from a material with index of refraction <span class="math inline">n_1</span> for index of
+          refraction <span class="math inline">n_2</span>, we can derive a rule for finding the
+          transmitted ray.</p>
+        <p>The cosine of the entering ray is <span class="math inline">(\vec e
+            \cdot \vec n)</span>, meaning that it’s sine is <span class="math inline">\sqrt{1-(\vec e \cdot \vec
+            n)^2}</span>, or <span class="math inline">\|-\vec e -(\vec e \cdot \vec n)\vec n\|_2</span>.
+          The sine of the outgoing vector thus needs to be <span class="math inline">\frac{n_1}{n_2}\sqrt{1-(\vec e
+            \cdot \vec
+            n)}</span>; if that is greater than 1, we have total internal refraction
+          and use the reflection equation instead; otherwise, the cosine of the
+          outgoing ray is <span class="math inline">\sqrt{1-(\frac{n_1}{n_2})^2(1-(\vec e \cdot \vec
+            n))}</span>. Putting this all together, we have</p>
+        <div role="complimentary" aria-label="algorithm" class="algorithm">
+          <ol type="1">
+            <li>let <span class="math inline">a = \vec e \cdot \vec n</span></li>
+            <li>let <span class="math inline">b = \frac{n_1}{n_2}\sqrt{1-(\vec e
+                \cdot \vec n)}</span></li>
+            <li>if <span class="math inline">b \ge 1</span>, return <span class="math inline">2(\vec n \cdot \vec e)\vec
+                n - \vec e)</span></li>
+            <li>let <span class="math inline">c =
+                \sqrt{1-\frac{n_1^2}{n_2^2}(1-(\vec e \cdot \vec n))}</span></li>
+            <li>return <span class="math inline">\frac{n_1}{n_2}(-\vec e -(\vec e
+                \cdot \vec n)\vec n) - c \vec n</span></li>
+          </ol>
+        </div>
+        <h2 data-number="4.4" id="global-illumination"><span class="header-section-number">4.4</span> Global
+          Illumination</h2>
+        <p>The standard lighting models pretend like the world is divided into a
+          small number of light emitters and a vast supply of things that emit no
+          light. This is obviously not true; if nothing but light sources gave off
+          photons, we could only see the light sources themselves. With global
+          illumination, you try to discover the impact of light bouncing off of
+          the wall, floor, and other objects by creating a number of secondary
+          rays sampling the diffuse reflection of each object.<br />
+          Ideally, the distribution of rays should parallel the chosen model of
+          diffuse lighting (see Section~) and should be so dense as to be
+          intractable for any reasonable scene. Much of the research in
+          photo-realistic rendering is devoted to finding shortcuts and techniques
+          that make this process require fewer rays for the same visual image
+          quality.</p>
+        <h1 data-number="5" id="photon-mapping-and-caustics"><span class="header-section-number">5</span> Photon Mapping
+          and Caustics</h1>
+        <p>Photon mapping is raytracing run backwards: instead of shooting rays
+          from the eye, you shoot them from the lights. The quantity of light
+          reaching each point in the scene is recorded and used when the scene is
+          rendered, either by raytracing or rasterizing. Since many photons
+          leaving a light source never reach the eye, this is an inefficient way
+          of creating a single picture; however, it allows lens and mirror-bounced
+          light (called caustics) to be rendered, and it can be more efficient
+          than viewer-centric global illumination if many images are to be made of
+          the same static scene.</p>
+        <h1 data-number="6" id="sub--super--and-importance-sampling"><span class="header-section-number">6</span> Sub-,
+          Super-, and
+          Importance-Sampling</h1>
+        <p>Sub-sampling is shooting fewer rays than you have pixels,
+          interpolating the colors to neighboring pixels. Super-sampling is
+          shooting several rays per pixel, averaging colors to create an
+          anti-aliased image. Importance sampling shoots fewer rays per pixel into
+          <q>boring</q> areas and more into <q>important</q> areas. Image-space
+          importance sampling shoots more rays into areas of the scene where
+          neighboring pixels differ in color; scene-space importance sampling
+          shoots more rays toward particular items.
+        </p>
+      </div>
+    </div>
+  </div>
+  <footer>
+    Copyright © 2023 Luther Tychonievich.
+    <p>Released under the <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img
+          alt="Creative Commons License" style="border-width:0"
+          src="https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png" /> CC-BY-NC-SA 4.0</a> license</a>.
+    </p>
+
+    <br />
+    Last updated 2023-08-24 10:47
+  </footer>
+</body>
+
+</html>

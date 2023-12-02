@@ -1,0 +1,11 @@
+bash ./test.sh sphere
+bash ./test.sh sun
+bash ./test.sh color
+bash ./test.sh overlap
+bash ./test.sh behind
+bash ./test.sh shadow-basic
+bash ./test.sh expose1
+bash ./test.sh expose2
+bash ./test.sh shadow-basic
+bash ./test.sh suns
+bash ./test.sh shadow-suns
