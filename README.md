@@ -34,7 +34,7 @@ python main.py <input_file>
 python main.py raytracer-files/ray-sphere.txt
 ```
 
-Below is a list of implemented input files. Or run `bash test.sh` to test all of them.
+Below is a list of implemented input files. Or run `bash batch_test.sh` to test all of them.
 
 ```text
 sphere
