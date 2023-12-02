@@ -7,7 +7,7 @@ A very simple Ray Tracer implemented with Python.
 ### Implemented
 
 - [x] Handles the input file keywords png, color, sphere, and one sun, with proper handling of sRGB gamma.
-- [X] Implements the ray-sphere intersection algorithm. These algorithms are defined down to the pixel in almost all contexts, and should match the provided input files and their outputs very closely. Almost all successful submissions follow our ray-sphere intersection pseduocode closely.
+- [X] Implements the ray-sphere intersection algorithm.
 - [X] Implement shadows with shadow rays, including preventing shadow acne.
 
 ### To be implemented
