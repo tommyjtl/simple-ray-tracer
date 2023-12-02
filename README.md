@@ -9,10 +9,10 @@ A very simple Ray Tracer implemented with Python.
 - [x] Handles the input file keywords png, color, sphere, and one sun, with proper handling of sRGB gamma.
 - [X] Implements the ray-sphere intersection algorithm.
 - [X] Implement shadows with shadow rays, including preventing shadow acne.
+- [X] Exposure control
 
 ### To be implemented
 
-- [ ] Exposure control
 - [ ] Multiple light sources (suns) and shadows
 - [ ] Move and rotates the camera
 - [ ] Fisheye and panoramic cameras
