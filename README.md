@@ -19,6 +19,7 @@ A very simple Ray Tracer implemented with Python.
 - [ ] Plane-intersection
 - [ ] Triangle-intersection
 - [ ] Texture mapping
+- [ ] Animation
 - [ ] IOR and refraction
 - [ ] Anti-aliasing
 - [ ] DoF
